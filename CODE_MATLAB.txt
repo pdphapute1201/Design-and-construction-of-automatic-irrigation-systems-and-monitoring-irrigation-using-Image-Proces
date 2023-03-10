@@ -1,0 +1,64 @@
+clc
+clear all
+close all
+%%%% khoi tao webcam%%%%
+cam = webcam(2,'Resolution', '640x480');
+%%%%%%%%%% khoi tao serial port %%%%%%%
+%seriallist;
+ar = serial('COM16','BAUD',9600)
+
+ fopen(ar);
+fprintf(ar,'%i',0);
+k=50;
+for h = 1:k
+%%%%% xu ly anh va nhan dang nuoc %%%
+preview(cam);
+snap = snapshot(cam);
+pause(1);
+I=rgb2gray(snap);
+% imshow(I);
+% title('Gray image');
+% Chuyen sang anh nhi phan
+[M N]=size(I);
+T=165;
+for i=1: M
+for j=1: N
+    if I(i,j)>= T
+        I(i,j)=255;
+    else I(i,j)=0;
+       
+    end
+end 
+end
+% figure
+% imshow(I)
+% title('Binary image');
+% Co anh lai de loai dom trang xung quanh, giu lai phan nuoc 
+% figure
+B = strel('line',5,10);
+C = imerode(I,B);
+%imshow(C);
+% title('Eroded image');
+%gian anh lam ro phan nuoc
+ B = strel('disk',10);
+ D = imdilate(C,B);
+% figure
+ imshow(D);
+% title('Dilated image');
+% diem so vung trang
+cc = bwconncomp(C,4);
+%%% so sanh nguong so vung trang de phat hien nuoc va gui cho arduino
+water = cc.NumObjects
+if (water > 10)
+    fprintf('water \n');
+     fprintf(ar,'%s',1);
+  
+
+else
+    fprintf('none \n');
+    fprintf(ar,'%s',0);
+end
+ 
+end
+clear cam; 
+fclose(instrfind);

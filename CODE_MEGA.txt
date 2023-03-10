@@ -1,0 +1,356 @@
+#include <DHT.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+#include <BH1750FVI.h>
+#include <ArduinoJson.h>
+#include <Adafruit_I2CDevice.h>
+BH1750FVI LightSensor(BH1750FVI::k_DevModeContLowRes);
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+#include <SoftwareSerial.h>
+const byte RX = 4;
+const byte TX = 5;
+SoftwareSerial mySerial = SoftwareSerial(RX, TX);
+String dataUART = "";
+String Datasend = "";
+const int BUTTON_PIN_1 = 8; 
+const int BUTTON_PIN_2 = 9;
+const int BUTTON_PIN_3 = 10;
+int BT1 = 0, BT2 = 0, BT3 = 0;
+bool dem1 = 0, dem2 = 0, dem3 = 0;
+int relay_bom = 18 , relay_den = 17;
+const int DHTPIN = 2;       //Đọc dữ liệu từ DHT11 ở chân 2 trên mạch Arduino
+const int DHTTYPE = DHT11;  //Khai báo loại cảm biến, có 2 loại là DHT11 và DHT22
+DHT dht(DHTPIN, DHTTYPE);
+int GNDsensor = A0;
+int Rainsensor = 3;
+int GND, RAIN, ANHSANG;
+float ND, DA;
+int temp1 = 0, temp2=0, temp3 = 0;
+int percent;
+
+unsigned long time;
+void setup() {
+  Serial.begin(9600);
+  pinMode(BUTTON_PIN_1, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_2, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_3, INPUT_PULLUP);
+  pinMode(GNDsensor,INPUT);
+  pinMode(Rainsensor,INPUT);
+  pinMode(DHTPIN,INPUT);
+  pinMode(relay_bom,OUTPUT);
+  pinMode(relay_den,OUTPUT);
+  mySerial.begin(9600);
+  lcd.begin();
+  lcd.backlight();
+  dht.begin();
+  LightSensor.begin();
+  time = millis(); 
+ 
+  
+}
+
+void loop() 
+{
+  BT_MODE();
+  MODE_AUTO();
+  CHUYENMH(); 
+  
+   if ( (unsigned long) (millis() - time) > 1000)
+   {
+  Json(String (ND), String (DA), String (percent), String (RAIN) ,String (ANHSANG), String (dem1), String (dem2),  String (dem3));
+  time = millis();
+   }
+  
+}
+
+void CHUYENMH()
+{
+  if(dem1 == 1 )
+    { 
+      lcd.clear();
+      delay(20);
+       while(dem1 == 1)
+        {          
+          MODE_MAN();
+          lcd.setCursor(0,0);
+          lcd.print("CD_MAN");
+           if ( (unsigned long) (millis() - time) > 1000)
+             {
+                  Json(String (ND), String (DA), String (percent), String (RAIN) ,String (ANHSANG), String (dem1), String (dem2),  String (dem3));
+                  time = millis();
+             }
+         BT1 = digitalRead(BUTTON_PIN_1);
+            if (BT1 == LOW) 
+            {
+              delay(50);
+              break;
+            }
+        }
+      
+    }
+}
+
+void BT_MODE()
+{
+  BT1 = digitalRead(BUTTON_PIN_1);
+    if(BT1 == LOW)
+      {           
+        delay(200);
+        temp1=0;
+          if(temp1 == 0)
+            { 
+              if(BT1 == LOW)
+              Serial.println("nut nhan1 duoc nhan");
+                dem1 =! dem1;
+              Serial.print("dem1: ");
+              Serial.println(dem1);
+              dem2=0;
+              dem3=0;
+              digitalWrite(relay_bom,LOW);
+                
+              digitalWrite(relay_den,LOW);
+                
+              temp1 = 1;
+              
+            }
+      }
+}
+
+void MODE_AUTO()
+{
+  
+  BT1 = digitalRead(BUTTON_PIN_1);
+    if(dem1 == 0 )
+      {          
+            
+            doamdat();
+            cambienmua();
+            cambienAS();
+            ND_DA();
+            bat_tat_bom();
+            battatden();
+      }
+            
+}
+void MODE_MAN()
+{
+  
+  BT2 = digitalRead(BUTTON_PIN_2);
+     if(dem2==0){ 
+     lcd.setCursor(0,1);
+     lcd.print("BOM : ");
+     lcd.print("TAT");}
+
+   
+                      
+     if(dem1 == 1)
+        {  
+          if(BT2 == LOW)
+            {
+              delay(200);
+              temp2 = 0;  
+              if(temp2 == 0)
+              {
+                
+                if(BT2 == LOW)
+                  {
+                    Serial.println("nut nhan2 duoc nhan");
+                    dem2 =! dem2 ;
+                    Serial.print("dem2: ");
+                    Serial.println(dem2);
+                    if(dem2==0)
+                      {                        
+                        lcd.setCursor(0,1);
+                        lcd.print("BOM : ");
+                        lcd.print("TAT");
+                        tatmotor();
+                         delay(5000);
+                        digitalWrite(relay_den,LOW);
+                        lcd.setCursor(0,2);
+                        lcd.print("DEN : ");
+                        lcd.print("TAT");
+                        dem3=0;
+                        
+                      }
+                    if(dem2==1)
+                      {
+                        batmotor();
+                        dem3=1;
+                      digitalWrite(relay_den,HIGH);
+                        lcd.setCursor(0,1);
+                        lcd.print("BOM : ");
+                        lcd.print("BAT");
+                        lcd.setCursor(0,2);
+                        lcd.print("DEN : ");
+                        lcd.print("BAT");
+                      }
+                  }
+                  temp2=1;
+                }
+            }
+        }   
+
+
+BT3 = digitalRead(BUTTON_PIN_3);
+     if(dem3==0)
+     {
+
+     lcd.setCursor(0,2);
+     lcd.print("DEN : ");
+     lcd.print("TAT");
+     }
+     if(dem1 == 1)
+        {     
+          if(BT3 == LOW)
+            {
+              delay(200);
+              temp3 = 0;
+              if(temp3 == 0)
+              {
+                if(BT3 == LOW)
+                  {
+                    Serial.println("nut nhan3 duoc nhan");
+                    dem3 =! dem3 ;
+                    Serial.print("dem3: ");
+                    Serial.println(dem3);
+                    if(dem3==0)
+                      {
+                        digitalWrite(relay_den, LOW);
+                        lcd.setCursor(0,2);
+                        lcd.print("DEN : ");
+                        lcd.print("TAT");
+                      }
+                    if(dem3==1)
+                      {
+                        digitalWrite(relay_den,HIGH);
+                        lcd.setCursor(0,2);
+                        lcd.print("DEN : ");
+                        lcd.print("BAT");
+                      }
+                  }
+                  temp3 = 1;
+                }
+            }
+        }    
+      
+}
+void doamdat()
+{     
+   GND = analogRead(A0);
+   delay(100);
+   percent = map(GND, 0, 1023, 100, 0);
+
+   lcd.setCursor(0,0);
+   lcd.print("DOAMDAT: ");
+   lcd.print(percent);
+   lcd.print("%");
+   lcd.print("    ");  
+}
+void cambienmua()
+{
+  RAIN = digitalRead(Rainsensor);
+   if (RAIN == 1) 
+    { // Cảm biến đang không mưa
+      lcd.setCursor(0,3);
+      lcd.print("RAIN: ");
+      lcd.print("KHONG");
+    } 
+   else 
+    {
+      lcd.setCursor(0,3);
+      lcd.print("RAIN: ");
+      lcd.print("CO   ");
+    }  
+}
+void cambienAS()
+{
+  ANHSANG = LightSensor.GetLightIntensity();
+  delay(50);
+  lcd.setCursor(0,1);
+  lcd.print("LIGHT: ");
+  lcd.print(ANHSANG);
+  lcd.print("lux");
+  lcd.print("    "); 
+}
+void batmotor()
+{
+  digitalWrite(relay_bom, HIGH);
+
+}
+void tatmotor()
+{
+  digitalWrite(relay_bom, LOW);
+  
+//  delay(2000);
+//  digitalWrite(relay_den,LOW);
+//  lcd.setCursor(0,2);
+//  lcd.print("DEN : ");
+//  lcd.print("TAT");
+  
+            
+  
+}
+void battatden()
+{
+    if(ANHSANG < 10 || percent <= 45 )
+      {
+        digitalWrite(relay_den, HIGH);
+      }
+    else  
+      {
+        digitalWrite(relay_den,LOW);
+      }
+      
+}
+
+void ND_DA()
+{
+   ND = dht.readTemperature();
+   DA = dht.readHumidity();
+   lcd.setCursor(0,2);
+   lcd.print("ND: ");
+   lcd.print(ND);
+   lcd.print(" ");
+   lcd.setCursor(10,2);
+   lcd.print("DA: ");
+   lcd.print(DA);
+   lcd.print(" "); 
+}
+void bat_tat_bom()
+{
+  if(percent <= 45 && RAIN == 1 )// đất khô và ko mưa
+  {
+    batmotor();
+    
+  }  
+  else if( percent >= 55  || RAIN == 0 )// đất ướt hoặc trời mưa
+  {
+    tatmotor();
+  }  
+}
+void xulyJson(String data)
+  {
+    const size_t capacity = JSON_OBJECT_SIZE(2) + 256;
+    DynamicJsonDocument JSON(capacity);  
+    deserializeJson(JSON, data); 
+     JSON.clear();    
+   }
+void Json(String thamso1, String thamso2, String thamso3, String thamso4, String thamso5, String thamso6, String thamso7,  String thamso8)
+{
+  Datasend = "";
+  //cấu trúc Json {"tên":"giá trị của tên","":"","":"", ......};
+  Datasend = "{\"ND\":\""+String(thamso1)+"\"," +
+             "\"DA\":\""+String(thamso2)+"\"," +
+             "\"GND\":\""+String(thamso3)+"\"," +
+             "\"RAIN\":\""+String(thamso4)+"\"," +
+            "\"LIGHT\":\""+String(thamso5)+"\"," +
+             "\"BT1\":\""+String(thamso6)+"\"," + 
+             "\"BT2\":\""+String(thamso7)+"\"," +  
+             "\"BT3\":\""+String(thamso8)+"\"}";
+             //gửi dữ liệu 
+   Serial.println(Datasend);             
+   mySerial.println(Datasend);//gửi qua cổng RX TX 
+   mySerial.flush(); //chờ gửi
+      
+  
+  }

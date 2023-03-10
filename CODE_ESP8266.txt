@@ -1,0 +1,130 @@
+#include <ESP8266WiFi.h>
+#include <ArduinoJson.h>
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(D1, D2);
+
+#define BLYNK_PRINT Serial
+#define BLYNK_TEMPLATE_ID   "TMPL5g1iiM6H"
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+char auth[] = "6aqUSaHUdlGqnvXJa7vqVqIgQZ4kj2p2";
+int k=0, p = 0;
+char ssid[] = "MUON PASS THI 40k";
+char pass[] = "choroima"; 
+bool BTN = HIGH;
+String recValue;
+ BLYNK_CONNECTED()
+ {
+  Blynk.syncAll();
+ }
+
+int LED = 0;
+void Read_Mega(void);
+void XuLyJson(String DataESP);
+String DataESP = "";
+void setup()
+{
+  // Debug console
+  Serial.begin(9600); 
+  mySerial.begin(9600);
+  Blynk.begin(auth, ssid, pass);
+  delay(100);
+  
+}
+
+void loop()
+{
+  Blynk.run();
+  Read_Mega();
+  WidgetLED led(V0);
+  
+  if(Serial.available())
+  {
+    recValue = Serial.read(); 
+  }
+  if(recValue == "1")
+  {
+  Blynk.virtualWrite(V10,"dang tuoi");
+  }
+  else
+  {
+    Blynk.virtualWrite(V10,"ngung tuoi");
+  }
+}
+
+void Read_Mega(void)
+{
+  while (mySerial.available())
+  {
+    char InChar = (char)mySerial.read();
+    
+    if(InChar != '\n')
+    {
+      DataESP += InChar;
+      
+    }
+    else
+    {
+      //Serial.print("ESP doc duoc la");
+      Serial.println(DataESP);
+      XuLyJson(DataESP);
+
+      DataESP = "";
+    }
+  }
+}
+
+void XuLyJson(String DataESP)
+{
+  const size_t capacity = JSON_OBJECT_SIZE(2) + 256;
+  DynamicJsonDocument JSON(capacity);  
+  deserializeJson(JSON, DataESP);
+  //lấy dữ liệu 
+  //JSON["i"]
+  String ND = JSON["ND"];
+  String DA = JSON["DA"];
+  String GND = JSON["GND"];
+  String RAIN = JSON["RAIN"];
+  String LIGHT = JSON["LIGHT"];
+  String BT1 = JSON["BT1"];
+  String BT2 = JSON["BT2"];
+  String BT3 = JSON["BT3"];
+  Serial.print("ND: ");
+  Serial.println(ND);
+  Serial.print("DA: ");
+  Serial.println(DA);
+  Serial.print("GND: ");
+  Serial.println(GND);
+  Serial.print("RAIN: ");
+  Serial.println(RAIN);
+  Serial.print("LIGHT: ");
+  Serial.println(LIGHT);
+  Serial.print("BT1: ");
+  Serial.println(BT1);
+  Serial.print("BT2: ");
+  Serial.println(BT2);
+  Serial.print("BT3: ");
+  Serial.println(BT3);
+
+  Serial.println("=========");
+  
+  Blynk.virtualWrite(V1, ND);
+  Blynk.virtualWrite(V2, DA);
+  Blynk.virtualWrite(V3, GND);
+  
+  if(RAIN == "1")
+  {
+    Blynk.virtualWrite(V4, "khong mua");
+  }
+  else
+  {
+    Blynk.virtualWrite(V4, "co mua");
+  }
+  
+  Blynk.virtualWrite(V5, LIGHT);
+  Blynk.virtualWrite(V6, BT1); 
+  Blynk.virtualWrite(V7, BT2);
+  Blynk.virtualWrite(V8, BT3);
+
+  JSON.clear();
+}
